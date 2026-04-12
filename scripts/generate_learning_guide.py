@@ -209,6 +209,7 @@ def build_prompt(context: str, owner: str, repo: str) -> str:
         "The guide must be a Markdown document with numbered checklist items using '- [ ]' syntax. "
         "Organise items into clear sections. Be specific — reference actual files, commands, "
         "concepts, and components found in the context. Avoid generic advice."
+        "Output MUST be in Traditional Chinese (繁體中文, Taiwan style)."
     )
 
     user = f"""You are generating a learning guide for the repository **{owner}/{repo}**.
@@ -225,6 +226,8 @@ Guidelines:
 - Reference real file names, commands, URLs, and concepts from the context.
 - Tailor depth and terminology to the learner profile.
 - End with a "Resources" section listing key files and links from the repo.
+- The entire document must be Traditional Chinese (繁體中文).
+- Use Markdown checklists (- [ ]) for all actionable items.
 
 --- REPOSITORY CONTEXT START ---
 {context}

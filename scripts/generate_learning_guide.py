@@ -5,6 +5,7 @@ learning guide using GitHub Models (OpenAI-compatible API).
 """
 
 import base64
+import json
 import os
 import re
 import sys
@@ -25,7 +26,7 @@ GOAL = os.environ.get("GOAL", "C")            # A | B | C
 MAX_FILES = int(os.environ.get("MAX_FILES", "80"))
 MAX_FILE_BYTES = int(os.environ.get("MAX_FILE_BYTES", "200000"))
 
-MODEL = "claude-sonnet-4.6"
+MODEL = os.environ.get("MODEL_ID") or os.environ.get("MODEL") or "CHANGE_ME"
 
 GITHUB_API = "https://api.github.com"
 GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"
@@ -260,11 +261,43 @@ def call_github_models(system: str, user: str) -> str:
     return response.choices[0].message.content
 
 
+def list_available_models() -> None:
+    """Fetch and print available models from GitHub Models, then exit 0."""
+    url = f"{GITHUB_MODELS_BASE}/models"
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {GITHUB_TOKEN}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    print("Available models:")
+    if isinstance(data, list):
+        for item in data:
+            model_id = item.get("id") or item.get("name") or str(item)
+            print(f"  {model_id}")
+    else:
+        print(json.dumps(data, indent=2))
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main():
+    if os.environ.get("LIST_MODELS") == "1":
+        list_available_models()
+        sys.exit(0)
+
+    if not MODEL or MODEL == "CHANGE_ME":
+        print(
+            "ERROR: No model configured. Set the MODEL_ID input (or MODEL env var) "
+            "to a valid GitHub Models model id from "
+            "https://models.inference.ai.azure.com/models",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if "/" not in TARGET_REPO:
         print("ERROR: TARGET_REPO must be in 'owner/repo' format.", file=sys.stderr)
         sys.exit(1)

@@ -32,6 +32,15 @@ on:
         description: "Maximum bytes per file"
         required: false
         default: "200000"
+      model_id:
+        description: "GitHub Models model id (from https://models.inference.ai.azure.com/models)"
+        required: false
+        default: "CHANGE_ME"
+      list_models:
+        description: "If true, print available model IDs and exit without generating a guide"
+        required: false
+        default: false
+        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -64,6 +73,8 @@ jobs:
           GOAL: ${{ inputs.goal }}
           MAX_FILES: ${{ inputs.max_files }}
           MAX_FILE_BYTES: ${{ inputs.max_file_bytes }}
+          MODEL_ID: ${{ inputs.model_id }}
+          LIST_MODELS: ${{ inputs.list_models == true && '1' || '0' }}
         run: python scripts/generate_learning_guide.py
 
       - name: Commit and push report

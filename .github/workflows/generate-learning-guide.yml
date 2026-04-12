@@ -76,7 +76,17 @@ jobs:
           MODEL_ID: ${{ inputs.model_id }}
           LIST_MODELS: ${{ inputs.list_models == true && '1' || '0' }}
         run: python scripts/generate_learning_guide.py
-
+        
+      - name: Debug show generated files
+        run: |
+          echo "PWD=$(pwd)"
+          echo "=== list repo root ==="
+          ls -la
+          echo "=== list reports/ ==="
+          ls -la reports || true
+          echo "=== find markdown files ==="
+          find . -maxdepth 4 -type f \( -name "*.md" -o -name "*.markdown" \) -print
+      
       - name: Commit and push report
         run: |
           git config user.name "github-actions[bot]"

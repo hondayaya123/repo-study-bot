@@ -25,7 +25,7 @@ GOAL = os.environ.get("GOAL", "C")            # A | B | C
 MAX_FILES = int(os.environ.get("MAX_FILES", "80"))
 MAX_FILE_BYTES = int(os.environ.get("MAX_FILE_BYTES", "200000"))
 
-MODEL = "claude-sonnet-4-5"
+MODEL = "claude-sonnet-4.6"
 
 GITHUB_API = "https://api.github.com"
 GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"

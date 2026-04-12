@@ -1,7 +1,7 @@
 """
 Repo Learning Guide Generator
 Fetches context from a target GitHub repo and generates a markdown checklist
-learning guide using GitHub Models (OpenAI-compatible API).
+learning guide using either Google Gemini (AI Studio) or GitHub Models.
 """
 
 import base64
@@ -19,14 +19,26 @@ from openai import OpenAI
 # Configuration
 # ---------------------------------------------------------------------------
 
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 TARGET_REPO = os.environ["TARGET_REPO"]       # owner/repo
 LEVEL = os.environ.get("LEVEL", "newbie")     # newbie | junior | mid
 GOAL = os.environ.get("GOAL", "C")            # A | B | C
 MAX_FILES = int(os.environ.get("MAX_FILES", "80"))
 MAX_FILE_BYTES = int(os.environ.get("MAX_FILE_BYTES", "200000"))
 
+# Provider selection: "gemini" or "github_models"
+PROVIDER = os.environ.get("PROVIDER", "gemini").lower()
+
+# Gemini (Google AI Studio) settings
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
+# GitHub Models settings
 MODEL = os.environ.get("MODEL_ID") or os.environ.get("MODEL") or "CHANGE_ME"
+
+# Context size limits (characters) to avoid exceeding model limits
+MAX_CONTEXT_CHARS = int(os.environ.get("MAX_CONTEXT_CHARS", "800000"))
+MAX_FILE_CHARS = int(os.environ.get("MAX_FILE_CHARS", "50000"))
 
 GITHUB_API = "https://api.github.com"
 GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"
@@ -131,10 +143,16 @@ def collect_context(owner: str, repo: str) -> str:
         content = get_file_content(owner, repo, path)
         if content is None:
             return False
+        truncated = False
+        if len(content) > MAX_FILE_CHARS:
+            suffix_msg = f"\n\n[... truncated at {MAX_FILE_CHARS} chars]"
+            content = content[:MAX_FILE_CHARS - len(suffix_msg)] + suffix_msg
+            truncated = True
         files_collected.append((path, content))
         collected_paths.add(path)
         file_count += 1
-        print(f"  + {path} ({len(content)} chars)", flush=True)
+        suffix = " (truncated)" if truncated else ""
+        print(f"  + {path} ({len(content)} chars){suffix}", flush=True)
         return True
 
     # 1. Priority files (exact names)
@@ -167,8 +185,20 @@ def collect_context(owner: str, repo: str) -> str:
 
     # Assemble bundle
     parts = [f"# Context bundle for {owner}/{repo}\n"]
+    total_chars = len(parts[0])
+    files_included = 0
+    files_skipped = 0
     for path, content in files_collected:
-        parts.append(f"\n---\n## File: {path}\n\n```\n{content}\n```\n")
+        chunk = f"\n---\n## File: {path}\n\n```\n{content}\n```\n"
+        if total_chars + len(chunk) > MAX_CONTEXT_CHARS:
+            files_skipped += 1
+            continue
+        parts.append(chunk)
+        total_chars += len(chunk)
+        files_included += 1
+
+    if files_skipped:
+        print(f"  (skipped {files_skipped} file(s) to stay within {MAX_CONTEXT_CHARS} context chars)", flush=True)
 
     return "\n".join(parts)
 
@@ -261,6 +291,25 @@ def call_github_models(system: str, user: str) -> str:
     return response.choices[0].message.content
 
 
+def call_gemini(system: str, user: str) -> str:
+    """Call Google Gemini via the google-genai SDK (AI Studio)."""
+    from google import genai
+    from google.genai import types
+
+    print(f"Calling Gemini ({GEMINI_MODEL}) …", flush=True)
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=user,
+        config=types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=0.4,
+            max_output_tokens=8192,
+        ),
+    )
+    return response.text
+
+
 def list_available_models() -> None:
     """Fetch and print available models from GitHub Models, then exit 0."""
     url = f"{GITHUB_MODELS_BASE}/models"
@@ -289,13 +338,29 @@ def main():
         list_available_models()
         sys.exit(0)
 
-    if not MODEL or MODEL == "CHANGE_ME":
-        print(
-            "ERROR: No model configured. Set the MODEL_ID input (or MODEL env var) "
-            "to a valid GitHub Models model id from "
-            "https://models.inference.ai.azure.com/models",
-            file=sys.stderr,
-        )
+    # Validate provider-specific requirements
+    if PROVIDER == "gemini":
+        if not GEMINI_API_KEY:
+            print(
+                "ERROR: GEMINI_API_KEY is not set. Add it as a repository secret "
+                "and pass it via the workflow env.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    elif PROVIDER == "github_models":
+        if not MODEL or MODEL == "CHANGE_ME":
+            print(
+                "ERROR: No model configured. Set the MODEL_ID input (or MODEL env var) "
+                "to a valid GitHub Models model id from "
+                "https://models.inference.ai.azure.com/models",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if not GITHUB_TOKEN:
+            print("ERROR: GITHUB_TOKEN is not set.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"ERROR: Unknown PROVIDER '{PROVIDER}'. Use 'gemini' or 'github_models'.", file=sys.stderr)
         sys.exit(1)
 
     if "/" not in TARGET_REPO:
@@ -304,11 +369,16 @@ def main():
 
     owner, repo = TARGET_REPO.split("/", 1)
 
+    active_model = GEMINI_MODEL if PROVIDER == "gemini" else MODEL
+
     print(f"=== Repo Learning Guide Generator ===")
+    print(f"Provider:  {PROVIDER}")
+    print(f"Model:     {active_model}")
     print(f"Target:    {owner}/{repo}")
     print(f"Level:     {LEVEL}")
     print(f"Goal:      {GOAL}")
     print(f"Max files: {MAX_FILES}  Max file bytes: {MAX_FILE_BYTES}")
+    print(f"Max context chars: {MAX_CONTEXT_CHARS}  Max file chars: {MAX_FILE_CHARS}")
     print()
 
     # Fetch context
@@ -319,7 +389,10 @@ def main():
     system, user = build_prompt(context, owner, repo)
 
     # Call model
-    guide_md = call_github_models(system, user)
+    if PROVIDER == "gemini":
+        guide_md = call_gemini(system, user)
+    else:
+        guide_md = call_github_models(system, user)
 
     # Write output
     reports_dir = Path(__file__).parent.parent / "reports"
@@ -336,7 +409,8 @@ def main():
         f"level: {LEVEL}\n"
         f"goal: {GOAL}\n"
         f"generated_at: {timestamp}\n"
-        f"model: {MODEL}\n"
+        f"provider: {PROVIDER}\n"
+        f"model: {active_model}\n"
         f"---\n\n"
     )
 

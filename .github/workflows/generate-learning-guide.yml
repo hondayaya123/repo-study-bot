@@ -1,0 +1,77 @@
+name: Generate Repo Learning Guide
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Target repository (owner/repo, e.g. Canner/WrenAI)"
+        required: true
+      level:
+        description: "Experience level of the learner"
+        required: false
+        default: "newbie"
+        type: choice
+        options:
+          - newbie
+          - junior
+          - mid
+      goal:
+        description: "Learning goal depth (A=comprehensive, B=core concepts, C=quick start)"
+        required: false
+        default: "C"
+        type: choice
+        options:
+          - A
+          - B
+          - C
+      max_files:
+        description: "Maximum number of files to fetch from target repo"
+        required: false
+        default: "80"
+      max_file_bytes:
+        description: "Maximum bytes per file"
+        required: false
+        default: "200000"
+
+jobs:
+  generate:
+    name: Generate Learning Guide
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo-study-bot
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests openai
+
+      - name: Generate learning guide
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ inputs.target_repo }}
+          LEVEL: ${{ inputs.level }}
+          GOAL: ${{ inputs.goal }}
+          MAX_FILES: ${{ inputs.max_files }}
+          MAX_FILE_BYTES: ${{ inputs.max_file_bytes }}
+        run: python scripts/generate_learning_guide.py
+
+      - name: Commit and push report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/
+          git diff --cached --quiet || git commit -m "Add learning guide for ${{ inputs.target_repo }} [skip ci]"
+          git push
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: learning-guide
+          path: reports/

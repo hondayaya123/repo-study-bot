@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      models: read
 
     steps:
       - name: Checkout repo-study-bot

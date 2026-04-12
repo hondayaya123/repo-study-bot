@@ -74,7 +74,7 @@ jobs:
           MAX_FILES: ${{ inputs.max_files }}
           MAX_FILE_BYTES: ${{ inputs.max_file_bytes }}
           MODEL_ID: ${{ inputs.model_id }}
-          LIST_MODELS: ${{ inputs.list_models == true && '1' || '0' }}
+          LIST_MODELS: ${{ inputs.list_models }}
         run: python scripts/generate_learning_guide.py
         
       - name: Debug show generated files

@@ -285,7 +285,7 @@ def list_available_models() -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    if os.environ.get("LIST_MODELS") == "1":
+    if os.environ.get("LIST_MODELS") in ("true", "1"):
         list_available_models()
         sys.exit(0)
 

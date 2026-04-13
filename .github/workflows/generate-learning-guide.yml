@@ -24,20 +24,40 @@ on:
           - A
           - B
           - C
+      provider:
+        description: "LLM provider to use"
+        required: false
+        default: "gemini"
+        type: choice
+        options:
+          - gemini
+          - github_models
+      gemini_model:
+        description: "Gemini model id (used when provider=gemini)"
+        required: false
+        default: "gemini-2.5-flash"
       max_files:
         description: "Maximum number of files to fetch from target repo"
         required: false
         default: "80"
       max_file_bytes:
-        description: "Maximum bytes per file"
+        description: "Maximum bytes per file fetched from GitHub API"
         required: false
         default: "200000"
+      max_context_chars:
+        description: "Maximum total context characters sent to the model (prevents 413 / quota errors)"
+        required: false
+        default: "800000"
+      max_file_chars:
+        description: "Maximum characters per individual file included in context"
+        required: false
+        default: "50000"
       model_id:
-        description: "GitHub Models model id (e.g. google/gemini-2.5-flash — see https://github.com/marketplace/models)"
+        description: "GitHub Models model id (used when provider=github_models, e.g. google/gemini-2.5-flash — see https://github.com/marketplace/models)"
         required: false
         default: "google/gemini-2.5-flash"
       list_models:
-        description: "If true, print available model IDs and exit without generating a guide"
+        description: "If true, print available GitHub Models IDs and exit without generating a guide"
         required: false
         default: false
         type: boolean
@@ -63,16 +83,21 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests openai
+        run: pip install requests openai google-genai
 
       - name: Generate learning guide
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TARGET_REPO: ${{ inputs.target_repo }}
           LEVEL: ${{ inputs.level }}
           GOAL: ${{ inputs.goal }}
+          PROVIDER: ${{ inputs.provider }}
+          GEMINI_MODEL: ${{ inputs.gemini_model }}
           MAX_FILES: ${{ inputs.max_files }}
           MAX_FILE_BYTES: ${{ inputs.max_file_bytes }}
+          MAX_CONTEXT_CHARS: ${{ inputs.max_context_chars }}
+          MAX_FILE_CHARS: ${{ inputs.max_file_chars }}
           MODEL_ID: ${{ inputs.model_id }}
           LIST_MODELS: ${{ inputs.list_models }}
         run: python scripts/generate_learning_guide.py

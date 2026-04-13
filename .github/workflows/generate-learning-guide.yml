@@ -33,9 +33,9 @@ on:
         required: false
         default: "200000"
       model_id:
-        description: "GitHub Models model id (from https://models.inference.ai.azure.com/models)"
+        description: "GitHub Models model id (e.g. google/gemini-2.5-flash — see https://github.com/marketplace/models)"
         required: false
-        default: "CHANGE_ME"
+        default: "google/gemini-2.5-flash"
       list_models:
         description: "If true, print available model IDs and exit without generating a guide"
         required: false

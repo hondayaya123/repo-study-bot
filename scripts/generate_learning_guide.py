@@ -29,7 +29,8 @@ MAX_FILE_BYTES = int(os.environ.get("MAX_FILE_BYTES", "200000"))
 MODEL = os.environ.get("MODEL_ID") or os.environ.get("MODEL") or "CHANGE_ME"
 
 GITHUB_API = "https://api.github.com"
-GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"
+GITHUB_MODELS_BASE = "https://models.github.ai/inference"
+GITHUB_MODELS_CATALOG = "https://models.github.ai/catalog/models"
 
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -263,9 +264,8 @@ def call_github_models(system: str, user: str) -> str:
 
 def list_available_models() -> None:
     """Fetch and print available models from GitHub Models, then exit 0."""
-    url = f"{GITHUB_MODELS_BASE}/models"
     resp = requests.get(
-        url,
+        GITHUB_MODELS_CATALOG,
         headers={"Authorization": f"Bearer {GITHUB_TOKEN}"},
         timeout=30,
     )
@@ -292,8 +292,8 @@ def main():
     if not MODEL or MODEL == "CHANGE_ME":
         print(
             "ERROR: No model configured. Set the MODEL_ID input (or MODEL env var) "
-            "to a valid GitHub Models model id from "
-            "https://models.inference.ai.azure.com/models",
+            "to a valid GitHub Models model id (e.g. google/gemini-2.5-flash) from "
+            "https://github.com/marketplace/models",
             file=sys.stderr,
         )
         sys.exit(1)
